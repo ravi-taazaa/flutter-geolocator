@@ -28,8 +28,8 @@ import io.flutter.plugin.common.EventChannel;
 
 public class GeolocatorLocationService extends Service {
   private static final String TAG = "FlutterGeolocator";
-  private static final int ONGOING_NOTIFICATION_ID = 75415;
-  private static final String CHANNEL_ID = "geolocator_channel_01";
+  private static final int ONGOING_NOTIFICATION_ID = 9942585;
+  private static final String CHANNEL_ID = "75415";
   private final String WAKELOCK_TAG = "GeolocatorLocationService:Wakelock";
   private final String WIFILOCK_TAG = "GeolocatorLocationService:WifiLock";
   private final LocalBinder binder = new LocalBinder(this);

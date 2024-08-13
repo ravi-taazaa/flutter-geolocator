@@ -25,8 +25,12 @@ std::string ErrorCodeToString(ErrorCode errorCode) {
   switch (errorCode) {
     case ErrorCode::PermissionDefinitionsNotFound:
       return "PERMISSION_DEFINITIONS_NOT_FOUND";
+    case ErrorCode::OperationCanceled:
+      return "OPERATION_CANCELED";
+    case ErrorCode::UnknownError:
+      return "UNKNOWN_ERROR";
     default:
-      return "";
+      throw std::logic_error("unexcepted value" + static_cast<int>(errorCode));
   }
 }
 
@@ -137,8 +141,12 @@ winrt::fire_and_forget GeolocatorPlugin::RequestAccessAsync(std::unique_ptr<Meth
       result->Success(EncodableValue((int)LocationPermission::Denied));
     else if(access == GeolocationAccessStatus::Unspecified)
       result->Success(EncodableValue((int)LocationPermission::DeniedForever));
-  } catch(const std::exception& ex) {
+  } 
+  catch(const std::exception& ex) {
     result->Error(ErrorCodeToString(ErrorCode::PermissionDefinitionsNotFound), ex.what());
+  }
+  catch (...) {
+    result->Error(ErrorCodeToString(ErrorCode::UnknownError), "RequestAccess failed. Check the Geolocation Service is running.");
   }
 }
 
@@ -146,8 +154,13 @@ void GeolocatorPlugin::OnCheckPermission(std::unique_ptr<MethodResult<>> result)
   RequestAccessAsync(std::move(result));
 }
 
+bool isLocationStatusValid (const PositionStatus& status) {
+    return status != PositionStatus::Disabled 
+        && status != PositionStatus::NotAvailable;
+}
+
 void GeolocatorPlugin::OnIsLocationServiceEnabled(std::unique_ptr<MethodResult<>> result) {
-  result->Success(EncodableValue(geolocator.LocationStatus() != PositionStatus::NotAvailable));
+    result->Success(EncodableValue(isLocationStatusValid(geolocator.LocationStatus())));
 }
 
 void GeolocatorPlugin::OnRequestPermission(std::unique_ptr<MethodResult<>> result) {
@@ -156,8 +169,18 @@ void GeolocatorPlugin::OnRequestPermission(std::unique_ptr<MethodResult<>> resul
 
 winrt::fire_and_forget GeolocatorPlugin::OnGetLastKnownPosition(const MethodCall<>& method_call,
   std::unique_ptr<MethodResult<>> result) {
-  auto location = co_await geolocator.GetGeopositionAsync(std::chrono::hours(1), std::chrono::milliseconds::zero());
-  result->Success(LocationToEncodableMap(location));
+    try {
+        auto location = co_await geolocator.GetGeopositionAsync(std::chrono::hours(1), std::chrono::milliseconds::zero());
+        result->Success(LocationToEncodableMap(location));
+    }
+    catch (hresult_canceled const& error) {
+        result->Error(ErrorCodeToString(ErrorCode::OperationCanceled), 
+            to_string(error.message()));
+    }
+    catch (hresult_error const& error) {
+        result->Error(ErrorCodeToString(ErrorCode::UnknownError), 
+            to_string(error.message()));
+    }
 }
 
 void GeolocatorPlugin::GetLocationAccuracy(std::unique_ptr<MethodResult<>> result) {
@@ -169,9 +192,18 @@ void GeolocatorPlugin::GetLocationAccuracy(std::unique_ptr<MethodResult<>> resul
 
 winrt::fire_and_forget GeolocatorPlugin::OnGetCurrentPosition(const MethodCall<>& method_call,
   std::unique_ptr<MethodResult<>> result) {
-
-  auto location = co_await geolocator.GetGeopositionAsync();
-  result->Success(LocationToEncodableMap(location));
+    try {
+        auto location = co_await geolocator.GetGeopositionAsync();
+        result->Success(LocationToEncodableMap(location));
+    }
+    catch (hresult_canceled const& error) {
+        result->Error(ErrorCodeToString(ErrorCode::OperationCanceled), 
+            to_string(error.message()));
+    }
+    catch (hresult_error const& error) {
+        result->Error(ErrorCodeToString(ErrorCode::UnknownError), 
+            to_string(error.message()));
+    }
 }
 
 std::unique_ptr<StreamHandlerError<EncodableValue>> GeolocatorPlugin::OnListen(
@@ -223,7 +255,8 @@ std::unique_ptr<StreamHandlerError<EncodableValue>> GeolocatorPlugin::OnServiceL
     [events = std::move(events), this](Geolocator const& geolocator, StatusChangedEventArgs e)
     {
       if (m_currentStatus != PositionStatus::Disabled && e.Status() == PositionStatus::Disabled
-        || m_currentStatus != PositionStatus::Ready && e.Status() == PositionStatus::Ready) {
+        || m_currentStatus != PositionStatus::Ready && e.Status() == PositionStatus::Ready
+        || m_currentStatus != PositionStatus::Initializing && e.Status() == PositionStatus::Initializing ) {
         auto status = e.Status() == PositionStatus::NotAvailable
           ? ServiceStatus::Disabled
           : ServiceStatus::Enabled;
@@ -251,18 +284,27 @@ EncodableMap GeolocatorPlugin::LocationToEncodableMap(Geoposition const& locatio
   position.insert(std::make_pair(EncodableValue("longitude"), EncodableValue(location.Coordinate().Longitude())));
   position.insert(std::make_pair(EncodableValue("timestamp"), EncodableValue(clock::to_time_t(location.Coordinate().Timestamp()))));
 
-  if (location.Coordinate().Altitude() != nullptr) {
-    position.insert(std::make_pair(EncodableValue("altitude"), EncodableValue(location.Coordinate().Altitude().GetDouble())));
-  }
-
+  double altitude = location.Coordinate().Altitude() != nullptr && !std::isnan(location.Coordinate().Altitude().GetDouble())
+    ? location.Coordinate().Altitude().GetDouble()
+    : 0;
+  position.insert(std::make_pair(EncodableValue("altitude"), EncodableValue(altitude)));
+  
+  double altitudeAccuracy = location.Coordinate().AltitudeAccuracy() != nullptr && !std::isnan(location.Coordinate().AltitudeAccuracy().GetDouble())
+    ? location.Coordinate().AltitudeAccuracy().GetDouble()
+    : 0;
+  position.insert(std::make_pair(EncodableValue("altitude_accuracy"), EncodableValue(altitudeAccuracy)));
+  
   position.insert(std::make_pair(EncodableValue("accuracy"), EncodableValue(location.Coordinate().Accuracy())));
   
-  if (location.Coordinate().Heading() != nullptr) {
-    position.insert(std::make_pair(EncodableValue("heading"), EncodableValue(location.Coordinate().Heading().GetDouble())));
-  }
-  if (location.Coordinate().Speed() != nullptr) {
-    position.insert(std::make_pair(EncodableValue("speed"), EncodableValue(location.Coordinate().Speed().GetDouble())));
-  }
+  double heading = location.Coordinate().Heading() != nullptr && !std::isnan(location.Coordinate().Heading().GetDouble())
+    ? location.Coordinate().Heading().GetDouble()
+    : 0;
+  position.insert(std::make_pair(EncodableValue("heading"), EncodableValue(heading)));
+  
+  double speed = location.Coordinate().Speed() != nullptr && !std::isnan(location.Coordinate().Speed().GetDouble())
+    ? location.Coordinate().Speed().GetDouble()
+    : 0;
+  position.insert(std::make_pair(EncodableValue("speed"), EncodableValue(speed)));
 
   position.insert(std::make_pair(EncodableValue("is_mocked"), EncodableValue(false)));
 

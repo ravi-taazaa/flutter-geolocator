@@ -27,7 +27,7 @@ class GeolocatorWidget extends StatefulWidget {
   }
 
   @override
-  _GeolocatorWidgetState createState() => _GeolocatorWidgetState();
+  State<GeolocatorWidget> createState() => _GeolocatorWidgetState();
 }
 
 class _GeolocatorWidgetState extends State<GeolocatorWidget> {
@@ -76,26 +76,26 @@ class _GeolocatorWidgetState extends State<GeolocatorWidget> {
       itemBuilder: (context) => [
         if (Platform.isIOS)
           const PopupMenuItem(
-            child: Text("Get Location Accuracy"),
             value: 1,
+            child: Text("Get Location Accuracy"),
           ),
         if (Platform.isIOS)
           const PopupMenuItem(
-            child: Text("Request Temporary Full Accuracy"),
             value: 2,
+            child: Text("Request Temporary Full Accuracy"),
           ),
         const PopupMenuItem(
-          child: Text("Open App Settings"),
           value: 3,
+          child: Text("Open App Settings"),
         ),
         if (Platform.isAndroid)
           const PopupMenuItem(
-            child: Text("Open Location Settings"),
             value: 4,
+            child: Text("Open Location Settings"),
           ),
         const PopupMenuItem(
-          child: Text("Clear"),
           value: 5,
+          child: Text("Clear"),
         ),
       ],
     );
@@ -118,7 +118,7 @@ class _GeolocatorWidgetState extends State<GeolocatorWidget> {
           ExamplePage(
             Icons.location_on,
             (context) => Scaffold(
-              backgroundColor: Theme.of(context).backgroundColor,
+              backgroundColor: Theme.of(context).colorScheme.surface,
               body: ListView.builder(
                 itemCount: _positionItems.length,
                 itemBuilder: (context, index) {
@@ -151,10 +151,6 @@ class _GeolocatorWidgetState extends State<GeolocatorWidget> {
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
                   FloatingActionButton(
-                    child: (_positionStreamSubscription == null ||
-                            _positionStreamSubscription!.isPaused)
-                        ? const Icon(Icons.play_arrow)
-                        : const Icon(Icons.pause),
                     onPressed: _toggleListening,
                     tooltip: (_positionStreamSubscription == null)
                         ? 'Start position updates'
@@ -162,16 +158,25 @@ class _GeolocatorWidgetState extends State<GeolocatorWidget> {
                             ? 'Resume'
                             : 'Pause',
                     backgroundColor: _determineButtonColor(),
+                    child: (_positionStreamSubscription == null ||
+                            _positionStreamSubscription!.isPaused)
+                        ? const Icon(Icons.play_arrow)
+                        : const Icon(Icons.pause),
                   ),
                   sizedBox,
                   FloatingActionButton(
-                    child: const Icon(Icons.my_location),
                     onPressed: _getCurrentPosition,
+                    child: const Icon(Icons.my_location),
                   ),
                   sizedBox,
                   FloatingActionButton(
-                    child: const Icon(Icons.bookmark),
                     onPressed: _getLastKnownPosition,
+                    child: const Icon(Icons.bookmark),
+                  ),
+                  sizedBox,
+                  FloatingActionButton(
+                    onPressed: _isLocationServiceEnabled,
+                    child: const Icon(Icons.question_mark),
                   ),
                 ],
               ),
@@ -298,8 +303,11 @@ class _GeolocatorWidgetState extends State<GeolocatorWidget> {
         accuracy: LocationAccuracy.best,
         distanceFilter: 10,
         activityType: ActivityType.other,
-        // Only set to true if our app will be started up in the background.
+        // Only set showBackgroundLocationIndicator and
+        // allowBackgroundLocationUpdates to true if our app will be started up
+        // in the background.
         showBackgroundLocationIndicator: false,
+        allowBackgroundLocationUpdates: false,
       ));
       _positionStreamSubscription = positionStream.handleError((e) {
         _positionStreamSubscription?.cancel();
@@ -361,6 +369,16 @@ class _GeolocatorWidgetState extends State<GeolocatorWidget> {
         'No last known position available',
       );
     }
+  }
+
+  Future<void> _isLocationServiceEnabled() async {
+    final bool isLocationServiceEnabled =
+        await geolocatorApple.isLocationServiceEnabled();
+    final String displayValue = isLocationServiceEnabled
+        ? 'Location services are enabled.'
+        : 'Location services are disabled.';
+
+    _updatePositionList(_PositionItemType.log, displayValue);
   }
 
   void _getLocationAccuracy() async {

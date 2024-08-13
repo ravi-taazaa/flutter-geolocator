@@ -10,6 +10,7 @@ import android.content.Intent;
 import android.os.Build;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import androidx.core.app.NotificationCompat;
 import androidx.core.app.NotificationManagerCompat;
 
@@ -24,10 +25,10 @@ public class BackgroundNotification {
     private NotificationCompat.Builder builder;
 
     public BackgroundNotification(
-            Context context,
-            String channelId ,
-            Integer notificationId,
-            ForegroundNotificationOptions options
+        @NonNull Context context,
+        @NonNull String channelId ,
+        @NonNull Integer notificationId,
+        ForegroundNotificationOptions options
     ) {
         this.context = context;
         this.notificationId = notificationId;
@@ -85,8 +86,14 @@ public class BackgroundNotification {
                 .setContentTitle(options.getNotificationTitle())
                 .setSmallIcon(iconId)
                 .setContentText(options.getNotificationText())
-                .setContentIntent(buildBringToFrontIntent());
+                .setContentIntent(buildBringToFrontIntent())
+                .setOngoing(options.isSetOngoing());
 
+        @Nullable final Integer notificationColor = options.getColor();
+        if (notificationColor != null) {
+            builder = builder
+                .setColor(notificationColor);
+        }
 
         if (notify) {
             NotificationManagerCompat notificationManager = NotificationManagerCompat.from(context);

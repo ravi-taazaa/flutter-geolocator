@@ -12,7 +12,9 @@ class Position {
     required this.timestamp,
     required this.accuracy,
     required this.altitude,
+    required this.altitudeAccuracy,
     required this.heading,
+    required this.headingAccuracy,
     required this.speed,
     required this.speedAccuracy,
     this.floor,
@@ -28,13 +30,19 @@ class Position {
   final double longitude;
 
   /// The time at which this position was determined.
-  final DateTime? timestamp;
+  final DateTime timestamp;
 
   /// The altitude of the device in meters.
   ///
   /// The altitude is not available on all devices. In these cases the returned
   /// value is 0.0.
   final double altitude;
+
+  /// The estimated vertical accuracy of the position in meters.
+  ///
+  /// The accuracy is not available on all devices. In these cases the value is
+  /// 0.0.
+  final double altitudeAccuracy;
 
   /// The estimated horizontal accuracy of the position in meters.
   ///
@@ -47,6 +55,12 @@ class Position {
   /// The heading is not available on all devices. In these cases the value is
   /// 0.0.
   final double heading;
+
+  /// The estimated heading accuracy of the position in degrees.
+  ///
+  /// The heading accuracy is not available on all devices. In these cases the
+  /// value is 0.0.
+  final double headingAccuracy;
 
   /// The floor specifies the floor of the building on which the device is
   /// located.
@@ -79,7 +93,9 @@ class Position {
     var areEqual = other is Position &&
         other.accuracy == accuracy &&
         other.altitude == altitude &&
+        other.altitudeAccuracy == altitudeAccuracy &&
         other.heading == heading &&
+        other.headingAccuracy == headingAccuracy &&
         other.latitude == latitude &&
         other.longitude == longitude &&
         other.floor == floor &&
@@ -95,7 +111,9 @@ class Position {
   int get hashCode =>
       accuracy.hashCode ^
       altitude.hashCode ^
+      altitudeAccuracy.hashCode ^
       heading.hashCode ^
+      headingAccuracy.hashCode ^
       latitude.hashCode ^
       longitude.hashCode ^
       floor.hashCode ^
@@ -123,21 +141,27 @@ class Position {
           'The supplied map doesn\'t contain the mandatory key `longitude`.');
     }
 
-    final timestamp = positionMap['timestamp'] != null
-        ? DateTime.fromMillisecondsSinceEpoch(positionMap['timestamp'].toInt(),
-            isUtc: true)
-        : null;
+    // Assume that the timestamp is null if the map does not contain one
+    dynamic timestampInMap = positionMap['timestamp'];
+    final timestamp = timestampInMap == null
+        ? DateTime.now()
+        : DateTime.fromMillisecondsSinceEpoch(
+            timestampInMap.toInt(),
+            isUtc: true,
+          );
 
     return Position(
       latitude: positionMap['latitude'],
       longitude: positionMap['longitude'],
       timestamp: timestamp,
-      altitude: positionMap['altitude'] ?? 0.0,
-      accuracy: positionMap['accuracy'] ?? 0.0,
-      heading: positionMap['heading'] ?? 0.0,
+      altitude: _toDouble(positionMap['altitude']),
+      altitudeAccuracy: _toDouble(positionMap['altitude_accuracy']),
+      accuracy: _toDouble(positionMap['accuracy']),
+      heading: _toDouble(positionMap['heading']),
+      headingAccuracy: _toDouble(positionMap['heading_accuracy']),
       floor: positionMap['floor'],
-      speed: positionMap['speed'] ?? 0.0,
-      speedAccuracy: positionMap['speed_accuracy'] ?? 0.0,
+      speed: _toDouble(positionMap['speed']),
+      speedAccuracy: _toDouble(positionMap['speed_accuracy']),
       isMocked: positionMap['is_mocked'] ?? false,
     );
   }
@@ -147,13 +171,23 @@ class Position {
   Map<String, dynamic> toJson() => {
         'longitude': longitude,
         'latitude': latitude,
-        'timestamp': timestamp?.millisecondsSinceEpoch,
+        'timestamp': timestamp.millisecondsSinceEpoch,
         'accuracy': accuracy,
         'altitude': altitude,
+        'altitude_accuracy': altitudeAccuracy,
         'floor': floor,
         'heading': heading,
+        'heading_accuracy': headingAccuracy,
         'speed': speed,
         'speed_accuracy': speedAccuracy,
         'is_mocked': isMocked,
       };
+
+  static double _toDouble(dynamic value) {
+    if (value == null) {
+      return 0.0;
+    }
+
+    return value.toDouble();
+  }
 }

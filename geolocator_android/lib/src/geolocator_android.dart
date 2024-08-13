@@ -1,7 +1,9 @@
 import 'dart:async';
 
 import 'package:flutter/services.dart';
+import 'package:geolocator_android/geolocator_android.dart';
 import 'package:geolocator_platform_interface/geolocator_platform_interface.dart';
+import 'package:uuid/uuid.dart';
 
 /// An implementation of [GeolocatorPlatform] that uses method channels.
 class GeolocatorAndroid extends GeolocatorPlatform {
@@ -32,6 +34,8 @@ class GeolocatorAndroid extends GeolocatorPlatform {
 
   Stream<Position>? _positionStream;
   Stream<ServiceStatus>? _serviceStatusStream;
+
+  final Uuid _uuid = const Uuid();
 
   @override
   Future<LocationPermission> checkPermission() async {
@@ -80,7 +84,7 @@ class GeolocatorAndroid extends GeolocatorPlatform {
       final positionMap =
           await _methodChannel.invokeMethod('getLastKnownPosition', parameters);
 
-      return positionMap != null ? Position.fromMap(positionMap) : null;
+      return positionMap != null ? AndroidPosition.fromMap(positionMap) : null;
     } on PlatformException catch (e) {
       final error = _handlePlatformException(e);
 
@@ -98,28 +102,38 @@ class GeolocatorAndroid extends GeolocatorPlatform {
   @override
   Future<Position> getCurrentPosition({
     LocationSettings? locationSettings,
+    String? requestId,
   }) async {
+    requestId = requestId ?? _uuid.v4();
+
     try {
       Future<dynamic> positionFuture;
 
-      var timeLimit = locationSettings?.timeLimit;
+      final Duration? timeLimit = locationSettings?.timeLimit;
+
+      positionFuture = _methodChannel.invokeMethod(
+        'getCurrentPosition',
+        {
+          ...?locationSettings?.toJson(),
+          'requestId': requestId,
+        },
+      );
 
       if (timeLimit != null) {
-        positionFuture = _methodChannel
-            .invokeMethod(
-              'getCurrentPosition',
-              locationSettings?.toJson(),
-            )
-            .timeout(timeLimit);
-      } else {
-        positionFuture = _methodChannel.invokeMethod(
-          'getCurrentPosition',
-          locationSettings?.toJson(),
-        );
+        positionFuture = positionFuture.timeout(timeLimit);
       }
 
       final positionMap = await positionFuture;
-      return Position.fromMap(positionMap);
+      return AndroidPosition.fromMap(positionMap);
+    } on TimeoutException {
+      final parameters = <String, dynamic>{
+        'requestId': requestId,
+      };
+      _methodChannel.invokeMethod(
+        'cancelGetCurrentPosition',
+        parameters,
+      );
+      rethrow;
     } on PlatformException catch (e) {
       final error = _handlePlatformException(e);
 
@@ -178,7 +192,7 @@ class GeolocatorAndroid extends GeolocatorPlatform {
 
     _positionStream = positionStream
         .map<Position>((dynamic element) =>
-            Position.fromMap(element.cast<String, dynamic>()))
+            AndroidPosition.fromMap(element.cast<String, dynamic>()))
         .handleError(
       (error) {
         if (error is PlatformException) {

@@ -8,7 +8,7 @@ buildscript {
     }
 
     dependencies {
-        classpath 'com.android.tools.build:gradle:7.1.2'
+        classpath 'com.android.tools.build:gradle:7.4.2'
     }
 }
 
@@ -22,7 +22,11 @@ rootProject.allprojects {
 apply plugin: 'com.android.library'
 
 android {
-    compileSdkVersion 33
+    if (project.android.hasProperty("namespace")) {
+        namespace("com.baseflow.geolocator")
+    }
+
+    compileSdk 34
 
     defaultConfig {
         minSdkVersion 16
@@ -37,6 +41,9 @@ android {
 }
 
 dependencies {
-    implementation 'com.google.android.gms:play-services-location:20.0.0'
-    implementation 'androidx.core:core:1.8.0'
+    implementation 'com.google.android.gms:play-services-location:21.2.0'
+    implementation 'androidx.core:core:1.13.0'
+
+    testImplementation 'junit:junit:4.13.2'
+    testImplementation 'org.mockito:mockito-core:5.1.1'
 }

@@ -5,6 +5,8 @@ import android.app.Activity;
 import android.content.Context;
 import android.content.IntentSender;
 import android.location.Location;
+import android.os.Build;
+import android.os.Bundle;
 import android.os.Looper;
 import android.util.Log;
 
@@ -66,6 +68,16 @@ class FusedLocationClient implements LocationClient {
             }
 
             Location location = locationResult.getLastLocation();
+            if (location == null) {
+              return;
+            }
+            if (location.getExtras() == null) {
+              location.setExtras(Bundle.EMPTY);
+            }
+            if (locationOptions != null) {
+              location.getExtras().putBoolean(LocationOptions.USE_MSL_ALTITUDE_EXTRA, locationOptions.isUseMSLAltitude());
+            }
+
             nmeaClient.enrichExtrasWithNmea(location);
             positionChangedCallback.onPositionChanged(location);
           }
@@ -83,6 +95,24 @@ class FusedLocationClient implements LocationClient {
   }
 
   private static LocationRequest buildLocationRequest(@Nullable LocationOptions options) {
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
+      return buildLocationRequestDeprecated(options);
+    }
+
+    LocationRequest.Builder builder = new LocationRequest.Builder(0);
+
+    if (options != null) {
+      builder.setPriority(toPriority(options.getAccuracy()));
+      builder.setIntervalMillis(options.getTimeInterval());
+      builder.setMinUpdateIntervalMillis(options.getTimeInterval());
+      builder.setMinUpdateDistanceMeters(options.getDistanceFilter());
+    }
+
+    return builder.build();
+  }
+
+  @SuppressWarnings("deprecation")
+  private static LocationRequest buildLocationRequestDeprecated(@Nullable LocationOptions options) {
     LocationRequest locationRequest = LocationRequest.create();
 
     if (options != null) {
@@ -135,17 +165,19 @@ class FusedLocationClient implements LocationClient {
         .checkLocationSettings(new LocationSettingsRequest.Builder().build())
         .addOnCompleteListener(
             (response) -> {
-              if (response.isSuccessful()) {
-                LocationSettingsResponse lsr = response.getResult();
-                if (lsr != null) {
-                  LocationSettingsStates settingsStates = lsr.getLocationSettingsStates();
-                  boolean isGpsUsable = settingsStates != null && settingsStates.isGpsUsable();
-                  boolean isNetworkUsable =
-                      settingsStates != null && settingsStates.isNetworkLocationUsable();
-                  listener.onLocationServiceResult(isGpsUsable || isNetworkUsable);
-                } else {
-                  listener.onLocationServiceError(ErrorCodes.locationServicesDisabled);
-                }
+              if (!response.isSuccessful()) {
+                listener.onLocationServiceError(ErrorCodes.locationServicesDisabled);
+              }
+
+              LocationSettingsResponse lsr = response.getResult();
+              if (lsr != null) {
+                LocationSettingsStates settingsStates = lsr.getLocationSettingsStates();
+                boolean isGpsUsable = settingsStates != null && settingsStates.isGpsUsable();
+                boolean isNetworkUsable =
+                    settingsStates != null && settingsStates.isNetworkLocationUsable();
+                listener.onLocationServiceResult(isGpsUsable || isNetworkUsable);
+              } else {
+                listener.onLocationServiceError(ErrorCodes.locationServicesDisabled);
               }
             });
   }

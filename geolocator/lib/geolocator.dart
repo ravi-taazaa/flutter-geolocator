@@ -6,9 +6,14 @@ import 'package:geolocator_apple/geolocator_apple.dart';
 import 'package:geolocator_platform_interface/geolocator_platform_interface.dart';
 
 export 'package:geolocator_android/geolocator_android.dart'
-    show AndroidSettings, ForegroundNotificationConfig, AndroidResource;
+    show
+        AndroidSettings,
+        ForegroundNotificationConfig,
+        AndroidResource,
+        AndroidPosition;
 export 'package:geolocator_apple/geolocator_apple.dart'
     show AppleSettings, ActivityType;
+export 'package:geolocator_web/web_settings.dart' show WebSettings;
 export 'package:geolocator_platform_interface/geolocator_platform_interface.dart';
 
 /// Wraps CLLocationManager (on iOS) and FusedLocationProviderClient or
@@ -54,41 +59,94 @@ class Geolocator {
       GeolocatorPlatform.instance.getLastKnownPosition(
           forceLocationManager: forceAndroidLocationManager);
 
-  /// Returns the current position taking the supplied [desiredAccuracy] into
-  /// account.
+  /// Returns the current position.
+  ///
+  /// You can control the behavior of the location update by specifying an instance of
+  /// the [LocationSettings] class for the [locationSettings] parameter.
+  /// Standard settings are:
+  /// * `LocationSettings.accuracy`: allows controlling the precision of the position updates by
+  /// supplying (defaults to "best");
+  /// * `LocationSettings.distanceFilter`: allows controlling the minimum
+  /// distance the device needs to move before the update is emitted (default
+  /// value is 0 which indicates no filter is used);
+  /// * `LocationSettings.timeLimit`: allows for setting a timeout interval. If
+  /// between fetching locations the timeout interval is exceeded a
+  /// [TimeoutException] will be thrown. By default no time limit is configured.
+  ///
+  /// If you want to specify platform specific settings you can use the
+  /// [AndroidSettings], [AppleSettings] and [WebSettings] classes.
   ///
   /// You can control the precision of the location updates by supplying the
-  /// [desiredAccuracy] parameter (defaults to "best"). On Android you can
-  /// force the use of the Android LocationManager instead of the
-  /// FusedLocationProvider by setting the [forceAndroidLocationManager]
+  /// [desiredAccuracy] parameter (defaults to "best").
+  /// On Android you can force the use of the Android LocationManager instead of
+  /// the FusedLocationProvider by setting the [forceAndroidLocationManager]
   /// parameter to true. The [timeLimit] parameter allows you to specify a
   /// timeout interval (by default no time limit is configured).
+  ///
+  /// Calling the [getCurrentPosition] method will request the platform to
+  /// obtain a location fix. Depending on the availability of different location
+  /// services, this can take several seconds. The recommended use would be to
+  /// call the [getLastKnownPosition] method to receive a cached position and
+  /// update it with the result of the [getCurrentPosition] method.
   ///
   /// Throws a [TimeoutException] when no location is received within the
   /// supplied [timeLimit] duration.
   /// Throws a [LocationServiceDisabledException] when the user allowed access,
   /// but the location services of the device are disabled.
+  ///
+  ///
+  /// **Note**: On Android the location *accuracy* is interpreted as
+  /// [location *priority*](https://developers.google.com/android/reference/com/google/android/gms/location/Priority#constants).
+  /// The interpretation works as follows:
+  ///
+  /// [LocationAccuracy.lowest] -> [PRIORITY_PASSIVE](https://developers.google.com/android/reference/com/google/android/gms/location/Priority#public-static-final-int-priority_passive):
+  /// Ensures that no extra power will be used to derive locations. This
+  /// enforces that the request will act as a passive listener that will only
+  /// receive "free" locations calculated on behalf of other clients, and no
+  /// locations will be calculated on behalf of only this request.
+  ///
+  /// [LocationAccuracy.low] -> [PRIORITY_LOW_POWER](https://developers.google.com/android/reference/com/google/android/gms/location/Priority#public-static-final-int-priority_low_power):
+  /// Requests a tradeoff that favors low power usage at the possible expense of
+  /// location accuracy.
+  ///
+  /// [LocationAccuracy.medium] -> [PRIORITY_BALANCED_POWER_ACCURACY](https://developers.google.com/android/reference/com/google/android/gms/location/Priority#public-static-final-int-priority_balanced_power_accuracy):
+  /// Requests a tradeoff that is balanced between location accuracy and power
+  /// usage.
+  ///
+  /// [LocationAccuracy.high]+ -> [PRIORITY_HIGH_ACCURACY](https://developers.google.com/android/reference/com/google/android/gms/location/Priority#public-static-final-int-priority_high_accuracy):
+  /// Requests a tradeoff that favors highly accurate locations at the possible
+  /// expense of additional power usage.
   static Future<Position> getCurrentPosition({
+    LocationSettings? locationSettings,
+    @Deprecated(
+        "use settings parameter with AndroidSettings, AppleSettings, WebSettings, or LocationSettings")
     LocationAccuracy desiredAccuracy = LocationAccuracy.best,
+    @Deprecated(
+        "use settings parameter with AndroidSettings, AppleSettings, WebSettings, or LocationSettings")
     bool forceAndroidLocationManager = false,
+    @Deprecated(
+        "use settings parameter with AndroidSettings, AppleSettings, WebSettings, or LocationSettings")
     Duration? timeLimit,
   }) {
-    late LocationSettings locationSettings;
-    if (defaultTargetPlatform == TargetPlatform.android) {
-      locationSettings = AndroidSettings(
+    LocationSettings? settings;
+
+    if (locationSettings != null) {
+      settings = locationSettings;
+    } else if (defaultTargetPlatform == TargetPlatform.android) {
+      settings = AndroidSettings(
         accuracy: desiredAccuracy,
         forceLocationManager: forceAndroidLocationManager,
         timeLimit: timeLimit,
       );
-    } else {
-      locationSettings = LocationSettings(
-        accuracy: desiredAccuracy,
-        timeLimit: timeLimit,
-      );
     }
 
+    settings ??= LocationSettings(
+      accuracy: desiredAccuracy,
+      timeLimit: timeLimit,
+    );
+
     return GeolocatorPlatform.instance
-        .getCurrentPosition(locationSettings: locationSettings);
+        .getCurrentPosition(locationSettings: settings);
   }
 
   /// Fires whenever the location changes inside the bounds of the
@@ -121,7 +179,7 @@ class Geolocator {
   /// [TimeoutException] will be thrown. By default no time limit is configured.
   ///
   /// If you want to specify platform specific settings you can use the
-  /// [AndroidSettings] and [AppleSettings] classes.
+  /// [AndroidSettings], [AppleSettings] and [WebSettings] classes.
   ///
   /// Throws a [TimeoutException] when no location is received within the
   /// supplied [timeLimit] duration.

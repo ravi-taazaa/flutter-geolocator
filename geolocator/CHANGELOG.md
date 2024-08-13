@@ -1,3 +1,46 @@
+## 13.0.1
+
+- Resolves problems when compiling non-web platforms because of illegal reference to `dart:js_interop`.
+
+## 13.0.0
+
+- **BREAKING CHANGE:** Deprecates getCurrentPosition desiredAccuracy, forceAndroidLocationManager, and timeLimit parameters in favor of supplying a LocationSettings class.
+- Exposes `WebSettings` from geolocator.
+- Updates dependency on geolocator_web to version 4.1.0
+- Updates dependency on geolocator_android to version 4.3.0
+- Updates dependency on geolocator_apple to version 2.3.7
+- Updates dependency on geolocator_windows to version 0.2.3
+- Updates dependency on geolocator_platform_interface to version 4.2.3
+
+## 12.0.0
+
+- **BREAKING CHANGE:** Updates dependency on geolocator_web to version [4.0.0](https://pub.dev/packages/geolocator_web/changelog).
+
+## 11.1.0
+
+- Expose `AndroidPosition` from geolocator.
+
+## 11.0.0
+
+- **BREAKING CHANGE:** Updates dependency on geolocator_web to version [3.0.0](https://pub.dev/packages/geolocator_web/changelog).
+
+## 10.1.1
+
+- Adds a description to the README on how to add the `BYPASS_PERMISSION_LOCATION_ALWAYS` preprocessor to bypass the need for adding the `NSLocationAlwaysUsageDescription` to the `Info.plist`.
+
+## 10.1.0
+
+- Includes `altitudeAccuracy` and `headingAccuracy` in `Position`.
+
+## 10.0.1
+
+- Updates documentation for `getCurrentPosition()`, to clarify the behavior of location accuracy on Android devices.
+- Updates README regarding the plugin interpretation of `LocationAccuracy`.
+
+## 10.0.0
+
+- **BREAKING CHANGE:** Updates dependency on geolocator_windows to version 0.2.0. This will synchronize default values for `Position.altitude`, `Position.heading` and `Position.speed` with the other platforms. 
+
 ## 9.0.2
 
 - Updated dependency on geolocator_android to version 4.1.3
@@ -11,8 +54,8 @@
 
 > **IMPORTANT:** when updating to version 9.0.0 make sure to also set the `compileSdkVersion` in the `android/app/build.gradle` file to `33`.
 
-- Updated dependency on geolocator_android to version 4.0.0;
-- Make sure the Android example app compiles against Android SDK 33.
+- Updates dependency on geolocator_android to version 4.0.0;
+- Makes sure the Android example app compiles against Android SDK 33.
 
 ## 8.2.1
 

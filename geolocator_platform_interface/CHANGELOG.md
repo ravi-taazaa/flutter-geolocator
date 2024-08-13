@@ -1,3 +1,39 @@
+## 4.2.4
+
+- Correctly handle integer-like numbers when decoding `Position` from JSON.
+
+## 4.2.3
+
+- Fixes several grammar mistakes in the API documentation.
+
+## 4.2.2
+
+- Updates the documentation of the `getServiceStatusStream` method as it nolonger throws a `UnimplementedError` on web.
+
+## 4.2.1
+
+- Ensures that `timestamp` is set to current date and time if platform implementations return a `null` value.
+
+## 4.2.0
+
+- Replaces an optional DateTime? `timestamp` in `Position` object for an NonNull DateTime `timestamp`. 
+
+## 4.1.1
+
+- Updates dependencies to latest versions to prevent conflicts with other packages.
+
+## 4.1.0
+
+- Includes `altitudeAccuracy` and `headingAccuracy` in `Position`.
+
+## 4.0.8
+
+- Updates documentation for `getCurrentPosition()` and `LocationAccuracy`, to clarify the behavior of location accuracy on Android devices.
+
+## 4.0.7
+
+- Fixed a spelling error in docs.
+
 ## 4.0.6
 
 - Migrates to Dart SDK 2.15.0 and Flutter 2.8.0.
